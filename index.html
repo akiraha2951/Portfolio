@@ -7,7 +7,7 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%20-45%20360%20360%22%3E%3Cstyle%3Epath%7Bfill%3A%23111%7D%40media%20(prefers-color-scheme%3Adark)%7Bpath%7Bfill%3A%23f3f3f1%7D%7D%3C%2Fstyle%3E%3Cpath%20d%3D%22M200%2C150L140%2C150L120%2C90L60%2C270L0%2C270L90%2C0L150%2C0ZM240%2C270L140%2C270L160%2C210L220%2C210ZM360%2C270L300%2C270L280%2C210L220%2C210L200%2C150L260%2C150L240%2C90L270%2C0Z%22%2F%3E%3C%2Fsvg%3E">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jost:ital,wght@0,400;0,500;0,600;1,400&amp;display=swap">
 <style id="css">
-/* Layout: a 12-column Swiss grid in one typeface and two neutrals. Hero: a statement, then the logo (cols 1-5) beside the name stacked in three lines (cols 6-12) on a hairline; hovering a name part morphs the logo. Work alternates 7/5 and full-width tiles (6/6 on tablets), or switches to a numbered index. */
+/* Layout: a 12-column Swiss grid in one typeface and two neutrals. Hero: a full-screen stage with the logo beside the name stacked in three lines, then the statement and a hairline below it; hovering a name part morphs the logo. Work alternates 7/5 and full-width tiles (6/6 on tablets), or switches to a numbered index. */
 :root{
   --bg:#F3F3F1;
   --surface:#E7E7E4;
@@ -84,8 +84,10 @@ a{color:inherit}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .theme svg{rotate:180deg}}
 
 /* Hero */
-.hero{padding-block:clamp(48px,9vw,140px) clamp(72px,10vw,144px)}
-.hero-lede{align-items:end;row-gap:20px;margin-bottom:clamp(48px,8vw,120px)}
+.hero{padding-block:0 clamp(72px,10vw,144px)}
+/* The stage fills the first screen below the sticky top bar, with the logo and name centred in it: nothing else is in view until you scroll. */
+.hero-stage{min-height:calc(100vh - var(--topbar-h,64px));min-height:calc(100svh - var(--topbar-h,64px));display:flex;flex-direction:column;justify-content:center;padding-block:clamp(40px,7vw,96px) clamp(56px,11vh,140px)}
+.hero-lede{align-items:end;row-gap:20px;margin-top:clamp(40px,7vw,104px);margin-bottom:clamp(56px,8vw,112px)}
 .statement{grid-column:1 / 8;font-size:clamp(1.5rem,2.9vw,2.7rem);line-height:1.12;letter-spacing:-.02em;font-weight:400}
 .status{grid-column:10 / 13;justify-self:end;text-align:right;display:flex;align-items:center;gap:10px}
 .status::before{content:"";flex:none;width:7px;height:7px;border-radius:50%;background:currentColor;animation:pulse 2.4s ease-in-out infinite}
@@ -105,7 +107,7 @@ a{color:inherit}
   .logo-big{flex:none;width:clamp(260px,31vw,480px)}
   .names{flex:0 1 auto;min-width:0}
 }
-.hero-base{display:flex;justify-content:space-between;align-items:baseline;gap:12px;border-top:1px solid var(--ink);padding-top:12px;margin-top:clamp(12px,1.6vw,20px)}
+.hero-base{display:flex;justify-content:space-between;align-items:baseline;gap:12px;border-top:1px solid var(--ink);padding-top:12px}
 .hero-base a{text-decoration:none}
 .hero-base a:hover{color:var(--ink)}
 
@@ -386,8 +388,8 @@ const TARGETS = [
   { k:'header',    group:'hero',    label:'Top bar',               fx:'fade',      delay:0,   sel:'.topbar' },
   { k:'logo',      group:'hero',    label:'Logo',                  fx:'assemble',  delay:100, sel:'#hero-logo', extra:[['assemble','Pieces assemble']] },
   { k:'name',      group:'hero',    label:'Name',                  fx:'letters',   delay:300, sel:'#mark', extra:[['letters','Letter by letter']] },
-  { k:'statement', group:'hero',    label:'Statement',             fx:'rise',      delay:550, sel:'.hero-lede' },
-  { k:'heroBase',  group:'hero',    label:'Hero baseline',         fx:'wipe-side', delay:850, sel:'.hero-base' },
+  { k:'statement', group:'hero',    label:'Statement',             fx:'rise',      delay:0,   sel:'.hero-lede' },
+  { k:'heroBase',  group:'hero',    label:'Hero baseline',         fx:'wipe-side', delay:150, sel:'.hero-base' },
   { k:'heads',     group:'page',    label:'Section headings',      fx:'rise',      delay:0,   sel:'.head' },
   { k:'cards',     group:'page',    label:'Project cards',         fx:'rise',      delay:0,   sel:'#work-list > .cell[data-id]', stagger:true },
   { k:'images',    group:'page',    label:'Project card images',   fx:'wipe-up',   delay:120, sel:'#work-list .media' },
@@ -461,14 +463,7 @@ const armed = new Map();
 const watched = new Map();
 const clipFx = fx => fx === 'wipe-up' || fx === 'wipe-side';
 const onScreen = el => { const r = el.getBoundingClientRect(); return r.top < innerHeight * .94 && r.bottom > 0; };
-const io = 'IntersectionObserver' in window ? new IntersectionObserver(entries => {
-  const hits = [];
-  entries.forEach(e => {
-    if (!e.isIntersecting) return;
-    const set = watched.get(e.target);
-    if (set) set.forEach(el => { if (onScreen(el)) hits.push({ el, top:el.getBoundingClientRect().top, left:el.getBoundingClientRect().left }); });
-    else hits.push({ el:e.target, top:e.boundingClientRect.top, left:e.boundingClientRect.left });
-  });
+function fireHits(hits){
   hits.sort((a, b) => (a.top - b.top) || (a.left - b.left));
   let n = 0;
   hits.forEach(h => {
@@ -476,7 +471,28 @@ const io = 'IntersectionObserver' in window ? new IntersectionObserver(entries =
     unwatch(h.el); armed.delete(h.el); r.ctl.cancel();
     run(h.el, r.k, r.stagger ? (n++) * 90 : 0, false, r.proj);
   });
+}
+const io = 'IntersectionObserver' in window ? new IntersectionObserver(entries => {
+  const hits = [];
+  entries.forEach(e => {
+    if (!e.isIntersecting) return;
+    const set = watched.get(e.target);
+    if (set) set.forEach(el => { if (onScreen(el)) { const r = el.getBoundingClientRect(); hits.push({ el, top:r.top, left:r.left }); } });
+    else hits.push({ el:e.target, top:e.boundingClientRect.top, left:e.boundingClientRect.left });
+  });
+  fireHits(hits);
 }, { rootMargin:'0px 0px -6% 0px', threshold:[0, .06, .2, .4, .6, .8, 1] }) : null;
+/* A tall parent only reports when it crosses a threshold, which can happen before a clipped child is on screen, so also check on scroll. */
+let sweepQueued = false;
+addEventListener('scroll', () => {
+  if (sweepQueued || !watched.size) return;
+  sweepQueued = true;
+  requestAnimationFrame(() => {
+    sweepQueued = false; const hits = [];
+    watched.forEach(set => set.forEach(el => { if (onScreen(el)) { const r = el.getBoundingClientRect(); hits.push({ el, top:r.top, left:r.left }); } }));
+    fireHits(hits);
+  });
+}, { passive:true });
 function unwatch(el){
   const r = armed.get(el), w = r && r.watch; if (!w) return io && io.unobserve(el);
   const set = watched.get(w); if (!set) return;
@@ -509,13 +525,15 @@ document.getElementById('root').innerHTML = `
   </div></header>
   <main id="top">
     <section class="wrap hero" aria-labelledby="mark">
+      <div class="hero-stage">
+        <div class="g12 hero-id">
+          <div class="logo-big" id="hero-logo">${logoSVG('logo-lg')}</div>
+          <h1 class="names" id="mark"></h1>
+        </div>
+      </div>
       <div class="g12 hero-lede">
         <p class="statement" id="s-headline"></p>
         <p class="label ink status" id="s-status"></p>
-      </div>
-      <div class="g12 hero-id">
-        <div class="logo-big" id="hero-logo">${logoSVG('logo-lg')}</div>
-        <h1 class="names" id="mark"></h1>
       </div>
       <div class="hero-base"><span class="label ink" id="s-eyebrow"></span><a class="label" href="#work" id="s-index"></a></div>
     </section>
@@ -648,6 +666,8 @@ function nameParts(){
 const fullName = () => nameParts().join(' ');
 const roleOf = (i, n) => n === 1 ? 'middle' : n === 2 ? (i ? 'last' : 'first') : ['first','middle','last'][i];
 const logoMap = () => ({ first:'A', middle:'M', last:'H', ...(state.site.logoMap || {}) });
+const setTopbarH = () => document.documentElement.style.setProperty('--topbar-h', ($('.topbar').offsetHeight || 64) + 'px');
+setTopbarH(); addEventListener('resize', setTopbarH);
 let markKey = null;
 function fitMark(){
   const h = $('#mark'), lines = $$('.mark-in', h); if (!lines.length) return;
@@ -721,7 +741,7 @@ function startCycle(){
 function applyLoop(){
   const loop = motionState().loop;
   parallaxOn = loop === 'parallax' && canAnim();
-  if (!parallaxOn) ['#mark', '#hero-logo', '.hero-lede'].forEach(s => { const el = $(s); el.style.translate = ''; el.style.opacity = ''; });
+  if (!parallaxOn) ['#mark', '#hero-logo'].forEach(s => { const el = $(s); el.style.translate = ''; el.style.opacity = ''; });
   else onScroll();
   if (loop === 'cycle') startCycle(); else { stopCycle(); if (!hovering) setPart(null); }
 }
@@ -733,9 +753,6 @@ function onScroll(){
     const y = Math.min(scrollY, innerHeight * 1.5);
     $('#mark').style.translate = `0 ${(y * .22).toFixed(1)}px`;
     $('#hero-logo').style.translate = `0 ${(y * .1).toFixed(1)}px`;
-    const lede = $('.hero-lede');
-    lede.style.translate = `0 ${(y * -.08).toFixed(1)}px`;
-    lede.style.opacity = String(Math.max(0, 1 - y / (innerHeight * .7)).toFixed(3));
   });
 }
 addEventListener('scroll', onScroll, { passive:true });
